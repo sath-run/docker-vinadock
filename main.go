@@ -42,7 +42,7 @@ func setProgress(progress *float64, newValue float64) error {
 	return nil
 }
 
-func runVirtualFlow(stdout io.Writer, program string) error {
+func runVinaDock(stdout io.Writer, program string) error {
 	cmd := exec.Command(fmt.Sprintf("./bin/%s", program), "--config", "./data/config.txt")
 
 	config, err := os.ReadFile("./data/config.txt")
@@ -121,7 +121,7 @@ func main() {
 	}
 	defer stderr.Close()
 
-	err = runVirtualFlow(stdout, program)
+	err = runVinaDock(stdout, program)
 	if err != nil {
 		stderr.WriteString(fmt.Sprintf("%+v\n", err))
 		os.Exit(1)

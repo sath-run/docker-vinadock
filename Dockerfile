@@ -1,3 +1,5 @@
 FROM alpine:3.16
-COPY . /virtualflow
-WORKDIR /virtualflow
+WORKDIR /vinadock
+COPY bin ./bin
+COPY main .
+ENTRYPOINT [ "./main" ]
