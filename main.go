@@ -109,13 +109,13 @@ func main() {
 	flag.StringVar(&program, "program", "", "docking program")
 	flag.Parse()
 
-	stdout, err := os.OpenFile("./data/out.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	stdout, err := os.OpenFile("./data/sath_stdout.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
 		log.Fatalf("can't create stdout: %+v\n", err)
 	}
 	defer stdout.Close()
 
-	stderr, err := os.OpenFile("./data/err.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	stderr, err := os.OpenFile("./data/sath_stderr.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
 		log.Fatalf("can't create stderr: %+v\n", err)
 	}
