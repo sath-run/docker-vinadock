@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -24,7 +23,7 @@ type ProgressMessage struct {
 	Data    ProgressData `json:"data"`
 }
 
-func setProgress(progress *float64, newValue float64) error {
+func setProgress(progress *float64, newValue float64, stdout io.Writer) error {
 	*progress = newValue
 	message := ProgressMessage{
 		Format:  "sath",
@@ -38,19 +37,20 @@ func setProgress(progress *float64, newValue float64) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(jsonData))
+	stdout.Write(jsonData)
+	stdout.Write([]byte("\n"))
 	return nil
 }
 
 func runVinaDock(stdout io.Writer, program string) error {
-	cmd := exec.Command(fmt.Sprintf("./bin/%s", program), "--config", "./data/config.txt")
+	cmd := exec.Command(fmt.Sprintf("/vinadock/bin/%s", program), "--config", "/data/config.txt")
 
-	config, err := os.ReadFile("./data/config.txt")
+	config, err := os.ReadFile("/data/config.txt")
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	stdout.Write([]byte(fmt.Sprintf("program: %s\n", program)))
-	stdout.Write(config)
+	fmt.Printf("program: %s\n", program)
+	fmt.Println(string(config))
 
 	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
@@ -69,19 +69,20 @@ func runVinaDock(stdout io.Writer, program string) error {
 
 	buf := make([]byte, 1024)
 	var progress float64
-	setProgress(&progress, 1.0)
+	setProgress(&progress, 1.0, stdout)
 	for {
 		n, err := stdoutIn.Read(buf[:])
 		if n > 0 {
 			d := buf[:n]
 			for _, b := range d {
 				if b == byte('*') {
-					setProgress(&progress, progress+98.0/51.0)
+					setProgress(&progress, progress+98.0/51.0, stdout)
 				}
 			}
-			if _, err := stdout.Write(d); err != nil {
-				return errors.WithStack(err)
-			}
+			// if _, err := stdout.Write(d); err != nil {
+			// 	return errors.WithStack(err)
+			// }
+			fmt.Print(string(d))
 		}
 		if err != nil {
 			// Read returns io.EOF at the end of file, which is not an error for us
@@ -93,13 +94,13 @@ func runVinaDock(stdout io.Writer, program string) error {
 			break
 		}
 	}
-	errMsg, _ := ioutil.ReadAll(stdoutErr)
+	errMsg, _ := io.ReadAll(stdoutErr)
 
 	if err = cmd.Wait(); err != nil {
 		return errors.New(string(errMsg))
 	}
 
-	setProgress(&progress, 100.0)
+	setProgress(&progress, 100.0, stdout)
 	return nil
 }
 
@@ -109,15 +110,15 @@ func main() {
 	flag.StringVar(&program, "program", "", "docking program")
 	flag.Parse()
 
-	stdout, err := os.OpenFile("./data/sath_stdout.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	stdout, err := os.OpenFile("/data/sath.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		log.Fatalf("can't create stdout: %+v\n", err)
+		log.Fatalf("can't create sath log file: %+v\n", err)
 	}
 	defer stdout.Close()
 
-	stderr, err := os.OpenFile("./data/sath_stderr.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	stderr, err := os.OpenFile("/data/sath.err", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		log.Fatalf("can't create stderr: %+v\n", err)
+		log.Fatalf("can't create sath err file: %+v\n", err)
 	}
 	defer stderr.Close()
 
