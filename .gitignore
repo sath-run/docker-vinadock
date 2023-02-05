@@ -19,3 +19,7 @@ vendor/
 
 # Go workspace file
 go.work
+
+.DS_Store
+
+ADFRsuite-1.1/
