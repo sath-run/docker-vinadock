@@ -51,7 +51,6 @@ func appendConfig() error {
 	configPath := "/data/config.txt"
 	data, err := os.ReadFile(configPath)
 	if !errors.Is(err, os.ErrNotExist) && err != nil {
-		fmt.Println("Hi")
 		return err
 	}
 
@@ -228,6 +227,13 @@ func runVinaDock(stdout io.Writer, program string) error {
 	buf := make([]byte, 1024)
 	var progress float64
 	setProgress(&progress, 1.0, stdout)
+
+	os.Remove("/data/output.log")
+	outlog, err := os.OpenFile("/data/output.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		log.Fatalf("can't create sath log file: %+v\n", err)
+	}
+	defer outlog.Close()
 
 	for {
 		n, err := stdoutIn.Read(buf[:])
