@@ -21,4 +21,5 @@ VERSION=$( cat VERSION )
 
 docker tag vinadock zengxinzhy/vinadock:latest
 docker tag vinadock zengxinzhy/vinadock:$VERSION
-docker push -a zengxinzhy/vinadock
+docker push zengxinzhy/vinadock:latest
+docker push zengxinzhy/vinadock:$VERSION

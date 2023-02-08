@@ -78,7 +78,7 @@ func appendConfig() error {
 		configs = append(configs, fmt.Sprintf("receptor = %s", configMap["receptor"]))
 	}
 	if len(configMap["out"]) == 0 {
-		configMap["out"] = "/data/out.pdbqt"
+		configMap["out"] = "/data/output.pdbqt"
 		configs = append(configs, fmt.Sprintf("out = %s", configMap["out"]))
 	}
 	if len(configMap["cpu"]) == 0 {
