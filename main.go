@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -101,9 +102,13 @@ func appendConfig() error {
 		gpfPath := "/data/receptor.gpf"
 		cmd := exec.Command("prepare_gpf.py", "-l", configMap["ligand"], "-r",
 			configMap["receptor"], "-o", gpfPath, "-y")
-		if output, err := cmd.Output(); err != nil {
-			fmt.Println(string(output))
-			return err
+
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			return errors.WithMessage(err, stderr.String())
 		}
 		data, err := os.ReadFile(gpfPath)
 		if err != nil {
@@ -291,12 +296,16 @@ func main() {
 
 	err = appendConfig()
 	if err != nil {
-		stderr.WriteString(fmt.Sprintf("%+v\n", err))
+		errStr := fmt.Sprintf("%+v\n", err)
+		fmt.Println(errStr)
+		stderr.WriteString(errStr)
 		os.Exit(1)
 	}
 	err = runVinaDock(stdout, program)
 	if err != nil {
-		stderr.WriteString(fmt.Sprintf("%+v\n", err))
+		errStr := fmt.Sprintf("%+v\n", err)
+		fmt.Println(errStr)
+		stderr.WriteString(errStr)
 		os.Exit(1)
 	}
 }
