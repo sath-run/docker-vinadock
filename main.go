@@ -1,19 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"os/exec"
-	"regexp"
-	"runtime"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -45,163 +39,6 @@ func setProgress(progress *float64, newValue float64, stdout io.Writer) error {
 	}
 	stdout.Write(jsonData)
 	stdout.Write([]byte("\n"))
-	return nil
-}
-
-func appendConfig() error {
-	configPath := "/data/config.txt"
-	data, err := os.ReadFile(configPath)
-	if !errors.Is(err, os.ErrNotExist) && err != nil {
-		return err
-	}
-
-	configs := []string{}
-	configMap := map[string]string{}
-	regConfig, err := regexp.Compile(`(\w+)\s*=\s*(\S+)`)
-	if err != nil {
-		return err
-	}
-
-	for _, config := range strings.Split(string(data), "\n") {
-		matches := regConfig.FindStringSubmatch(config)
-		if len(matches) == 3 {
-			configMap[matches[1]] = matches[2]
-			configs = append(configs, config)
-		}
-	}
-
-	if len(configMap["ligand"]) == 0 {
-		configMap["ligand"] = "/data/ligand.pdbqt"
-		configs = append(configs, fmt.Sprintf("ligand = %s", configMap["ligand"]))
-	}
-	if len(configMap["receptor"]) == 0 {
-		configMap["receptor"] = "/data/receptor.pdbqt"
-		configs = append(configs, fmt.Sprintf("receptor = %s", configMap["receptor"]))
-	}
-	if len(configMap["out"]) == 0 {
-		configMap["out"] = "/data/output.pdbqt"
-		configs = append(configs, fmt.Sprintf("out = %s", configMap["out"]))
-	}
-	if len(configMap["cpu"]) == 0 {
-		cores := runtime.NumCPU()
-		configs = append(configs, fmt.Sprintf("cpu = %d", cores))
-	}
-	if len(configMap["exhaustiveness"]) == 0 {
-		configs = append(configs, "exhaustiveness = 32")
-	}
-
-	boxKeys := []string{"center_x", "center_y", "center_z", "size_x", "size_y", "size_z"}
-	boxParamMissing := false
-	for _, key := range boxKeys {
-		if len(configMap[key]) == 0 {
-			boxParamMissing = true
-			break
-		}
-	}
-	if boxParamMissing {
-		gpfPath := "/data/receptor.gpf"
-		cmd := exec.Command("prepare_gpf.py", "-l", configMap["ligand"], "-r",
-			configMap["receptor"], "-o", gpfPath, "-y")
-
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			return errors.WithMessage(err, stderr.String())
-		}
-		data, err := os.ReadFile(gpfPath)
-		if err != nil {
-			return err
-		}
-		regNpts, err := regexp.Compile(`npts (\d+) (\d+) (\d+)`)
-		if err != nil {
-			return err
-		}
-		regSpacing, err := regexp.Compile(`spacing (\S+)`)
-		if err != nil {
-			return err
-		}
-		regCenter, err := regexp.Compile(`gridcenter (\S+) (\S+) (\S+)`)
-		if err != nil {
-			return err
-		}
-
-		center_x, center_y, center_z := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
-		size_x, size_y, size_z := math.MaxFloat64, math.MaxFloat64, math.MaxFloat64
-		spacing := math.MaxFloat64
-
-		for _, line := range strings.Split(string(data), "\n") {
-			if matches := regNpts.FindStringSubmatch(line); len(matches) == 4 {
-				if size_x, err = strconv.ParseFloat(matches[1], 64); err != nil {
-					return err
-				}
-				if size_y, err = strconv.ParseFloat(matches[2], 64); err != nil {
-					return err
-				}
-				if size_z, err = strconv.ParseFloat(matches[3], 64); err != nil {
-					return err
-				}
-			}
-			if matches := regSpacing.FindStringSubmatch(line); len(matches) == 2 {
-				if spacing, err = strconv.ParseFloat(matches[1], 64); err != nil {
-					return err
-				}
-			}
-			if matches := regCenter.FindStringSubmatch(line); len(matches) > 0 {
-				if center_x, err = strconv.ParseFloat(matches[1], 64); err != nil {
-					return err
-				}
-				if center_y, err = strconv.ParseFloat(matches[2], 64); err != nil {
-					return err
-				}
-				if center_z, err = strconv.ParseFloat(matches[3], 64); err != nil {
-					return err
-				}
-			}
-		}
-
-		for _, val := range []float64{center_x, center_y, center_z, size_x, size_y, size_z, spacing} {
-			if val == math.MaxFloat64 {
-				return errors.Errorf("error parsing gpf: %f %f %f %f %f %f %f",
-					center_x, center_y, center_z, size_x, size_y, size_z, spacing)
-			}
-		}
-
-		size_x *= spacing
-		size_y *= spacing
-		size_z *= spacing
-
-		if len(configMap["center_x"]) == 0 {
-			configs = append(configs, fmt.Sprintf("center_x = %f", center_x))
-		}
-		if len(configMap["center_y"]) == 0 {
-			configs = append(configs, fmt.Sprintf("center_y = %f", center_y))
-		}
-		if len(configMap["center_z"]) == 0 {
-			configs = append(configs, fmt.Sprintf("center_z = %f", center_z))
-		}
-		if len(configMap["size_x"]) == 0 {
-			configs = append(configs, fmt.Sprintf("size_x = %f", size_x))
-		}
-		if len(configMap["size_y"]) == 0 {
-			configs = append(configs, fmt.Sprintf("size_y = %f", size_y))
-		}
-		if len(configMap["size_z"]) == 0 {
-			configs = append(configs, fmt.Sprintf("size_z = %f", size_z))
-		}
-	}
-
-	f, err := os.Create(configPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.WriteString(strings.Join(configs, "\n") + "\n")
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -294,13 +131,6 @@ func main() {
 	}
 	defer stderr.Close()
 
-	err = appendConfig()
-	if err != nil {
-		errStr := fmt.Sprintf("%+v\n", err)
-		fmt.Println(errStr)
-		stderr.WriteString(errStr)
-		os.Exit(1)
-	}
 	err = runVinaDock(stdout, program)
 	if err != nil {
 		errStr := fmt.Sprintf("%+v\n", err)
